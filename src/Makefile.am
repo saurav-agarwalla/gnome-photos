@@ -98,6 +98,8 @@ gnome_photos_SOURCES = \
 	photos-filterable.h \
 	photos-flickr-item.c \
 	photos-flickr-item.h \
+	photos-flow-box.c \
+	photos-flow-box.h \
 	photos-header-bar.c \
 	photos-header-bar.h \
 	photos-indexing-notification.c \

@@ -24,10 +24,10 @@
 
 
 #include "config.h"
-#include <libgd/gd.h>
 
 #include "photos-application.h"
 #include "photos-enums.h"
+#include "photos-flow-box.h"
 #include "photos-item-manager.h"
 #include "photos-load-more-button.h"
 #include "photos-remote-display-manager.h"
@@ -42,10 +42,11 @@
 
 struct _PhotosViewContainerPrivate
 {
-  GdMainView *view;
   GtkListStore *model;
   GtkTreePath *current_path;
   GtkWidget *load_more;
+  GtkWidget *sw;
+  GtkWidget *view;
   PhotosBaseManager *item_mngr;
   PhotosModeController *mode_cntrlr;
   PhotosRemoteDisplayManager *remote_mngr;
@@ -77,14 +78,14 @@ photos_view_container_view_changed (PhotosViewContainer *self)
   gdouble value;
   gint reveal_area_height = 32;
 
-  vscrollbar = gtk_scrolled_window_get_vscrollbar (GTK_SCROLLED_WINDOW (priv->view));
+  vscrollbar = gtk_scrolled_window_get_vscrollbar (GTK_SCROLLED_WINDOW (priv->sw));
   if (vscrollbar == NULL || !gtk_widget_get_visible (GTK_WIDGET (vscrollbar)))
     {
       photos_load_more_button_set_block (PHOTOS_LOAD_MORE_BUTTON (priv->load_more), TRUE);
       return;
     }
 
-  vadjustment = gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (priv->view));
+  vadjustment = gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (priv->sw));
   page_size = gtk_adjustment_get_page_size (vadjustment);
   upper = gtk_adjustment_get_upper (vadjustment);
   value = gtk_adjustment_get_value (vadjustment);
@@ -106,7 +107,7 @@ photos_view_container_connect_view (PhotosViewContainer *self)
   GtkAdjustment *vadjustment;
   GtkWidget *vscrollbar;
 
-  vadjustment = gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (priv->view));
+  vadjustment = gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (priv->sw));
   g_signal_connect_object (vadjustment,
                            "changed",
                            G_CALLBACK (photos_view_container_view_changed),
@@ -118,7 +119,7 @@ photos_view_container_connect_view (PhotosViewContainer *self)
                            self,
                            G_CONNECT_SWAPPED);
 
-  vscrollbar = gtk_scrolled_window_get_vscrollbar (GTK_SCROLLED_WINDOW (priv->view));
+  vscrollbar = gtk_scrolled_window_get_vscrollbar (GTK_SCROLLED_WINDOW (priv->sw));
   g_signal_connect_object (vscrollbar,
                            "notify::visible",
                            G_CALLBACK (photos_view_container_view_changed),
@@ -136,33 +137,33 @@ photos_view_container_disconnect_view (PhotosViewContainer *self)
   GtkAdjustment *vadjustment;
   GtkWidget *vscrollbar;
 
-  vadjustment = gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (priv->view));
-  vscrollbar = gtk_scrolled_window_get_vscrollbar (GTK_SCROLLED_WINDOW (priv->view));
+  vadjustment = gtk_scrolled_window_get_vadjustment (GTK_SCROLLED_WINDOW (priv->sw));
+  vscrollbar = gtk_scrolled_window_get_vscrollbar (GTK_SCROLLED_WINDOW (priv->sw));
 
   g_signal_handlers_disconnect_by_func (vadjustment, photos_view_container_view_changed, self);
   g_signal_handlers_disconnect_by_func (vscrollbar, photos_view_container_view_changed, self);
 }
 
 
-static void
-photos_view_container_item_activated (GdMainView *main_view,
-                                      const gchar * id,
-                                      const GtkTreePath *path,
-                                      gpointer user_data)
-{
-  PhotosViewContainer *self = PHOTOS_VIEW_CONTAINER (user_data);
-  PhotosViewContainerPrivate *priv = self->priv;
-  GObject *object;
+/* static void */
+/* photos_view_container_item_activated (GdMainView *main_view, */
+/*                                       const gchar * id, */
+/*                                       const GtkTreePath *path, */
+/*                                       gpointer user_data) */
+/* { */
+/*   PhotosViewContainer *self = PHOTOS_VIEW_CONTAINER (user_data); */
+/*   PhotosViewContainerPrivate *priv = self->priv; */
+/*   GObject *object; */
 
-  priv->current_path = gtk_tree_path_copy (path);
-  object = photos_base_manager_get_object_by_id (priv->item_mngr, id);
+/*   priv->current_path = gtk_tree_path_copy (path); */
+/*   object = photos_base_manager_get_object_by_id (priv->item_mngr, id); */
 
-  if (!photos_base_item_is_collection (PHOTOS_BASE_ITEM (object)) &&
-      photos_remote_display_manager_is_active (priv->remote_mngr))
-    photos_remote_display_manager_render (priv->remote_mngr, PHOTOS_BASE_ITEM (object));
-  else
-    photos_base_manager_set_active_object (priv->item_mngr, object);
-}
+/*   if (!photos_base_item_is_collection (PHOTOS_BASE_ITEM (object)) && */
+/*       photos_remote_display_manager_is_active (priv->remote_mngr)) */
+/*     photos_remote_display_manager_render (priv->remote_mngr, PHOTOS_BASE_ITEM (object)); */
+/*   else */
+/*     photos_base_manager_set_active_object (priv->item_mngr, object); */
+/* } */
 
 
 static void
@@ -175,14 +176,14 @@ photos_view_container_query_status_changed (PhotosTrackerController *trk_cntrlr,
 
   if (!query_status)
     {
-      gd_main_view_set_model (priv->view, GTK_TREE_MODEL (priv->model));
+      /* photos_flow_box_set_model (PHOTOS_FLOW_BOX (priv->view), GTK_TREE_MODEL (priv->model)); */
       photos_selection_controller_freeze_selection (priv->sel_cntrlr, FALSE);
       /* TODO: update selection */
     }
   else
     {
       photos_selection_controller_freeze_selection (priv->sel_cntrlr, TRUE);
-      gd_main_view_set_model (priv->view, NULL);
+      /* photos_flow_box_set_model (PHOTOS_FLOW_BOX (priv->view), NULL); */
     }
 }
 
@@ -193,33 +194,33 @@ photos_view_container_selection_mode_changed (PhotosSelectionController *sel_cnt
                                               gpointer user_data)
 {
   PhotosViewContainer *self = PHOTOS_VIEW_CONTAINER (user_data);
-  gd_main_view_set_selection_mode (self->priv->view, mode);
+  /* gd_main_view_set_selection_mode (self->priv->view, mode); */
 }
 
 
-static void
-photos_view_container_selection_mode_request (GdMainView *main_view, gpointer user_data)
-{
-  PhotosViewContainer *self = PHOTOS_VIEW_CONTAINER (user_data);
-  photos_selection_controller_set_selection_mode (self->priv->sel_cntrlr, TRUE);
-}
+/* static void */
+/* photos_view_container_selection_mode_request (GdMainView *main_view, gpointer user_data) */
+/* { */
+/*   PhotosViewContainer *self = PHOTOS_VIEW_CONTAINER (user_data); */
+/*   photos_selection_controller_set_selection_mode (self->priv->sel_cntrlr, TRUE); */
+/* } */
 
 
-static void
-photos_view_container_view_selection_changed (GdMainView *main_view, gpointer user_data)
-{
-  PhotosViewContainer *self = PHOTOS_VIEW_CONTAINER (user_data);
-  PhotosViewContainerPrivate *priv = self->priv;
-  GList *selected_urns;
-  GList *selection;
+/* static void */
+/* photos_view_container_view_selection_changed (GdMainView *main_view, gpointer user_data) */
+/* { */
+/*   PhotosViewContainer *self = PHOTOS_VIEW_CONTAINER (user_data); */
+/*   PhotosViewContainerPrivate *priv = self->priv; */
+/*   GList *selected_urns; */
+/*   GList *selection; */
 
-  selection = gd_main_view_get_selection (main_view);
-  selected_urns = photos_utils_get_urns_from_paths (selection, GTK_TREE_MODEL (priv->model));
-  photos_selection_controller_set_selection (priv->sel_cntrlr, selected_urns);
+/*   selection = gd_main_view_get_selection (main_view); */
+/*   selected_urns = photos_utils_get_urns_from_paths (selection, GTK_TREE_MODEL (priv->model)); */
+/*   photos_selection_controller_set_selection (priv->sel_cntrlr, selected_urns); */
 
-  if (selection != NULL)
-    g_list_free_full (selection, (GDestroyNotify) gtk_tree_path_free);
-}
+/*   if (selection != NULL) */
+/*     g_list_free_full (selection, (GDestroyNotify) gtk_tree_path_free); */
+/* } */
 
 
 static void
@@ -246,6 +247,7 @@ photos_view_container_constructed (GObject *object)
   PhotosViewContainerPrivate *priv = self->priv;
   GAction *action;
   GtkApplication *app;
+  GtkStyleContext *context;
   gboolean status;
 
   G_OBJECT_CLASS (photos_view_container_parent_class)->constructed (object);
@@ -254,23 +256,32 @@ photos_view_container_constructed (GObject *object)
 
   gtk_orientable_set_orientation (GTK_ORIENTABLE (self), GTK_ORIENTATION_VERTICAL);
 
-  priv->view = gd_main_view_new (GD_MAIN_VIEW_ICON);
-  gtk_container_add (GTK_CONTAINER (self), GTK_WIDGET (priv->view));
+  priv->sw = gtk_scrolled_window_new (NULL, NULL);
+  gtk_widget_set_hexpand (priv->sw, TRUE);
+  gtk_widget_set_vexpand (priv->sw, TRUE);
+  gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (priv->sw), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+  gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (priv->sw), GTK_SHADOW_IN);
+  context = gtk_widget_get_style_context (priv->sw);
+  gtk_style_context_add_class (context, "documents-scrolledwin");
+  gtk_container_add (GTK_CONTAINER (self), priv->sw);
+
+  priv->view = photos_flow_box_new (priv->mode);
+  gtk_container_add (GTK_CONTAINER (priv->sw), priv->view);
 
   priv->load_more = photos_load_more_button_new (priv->mode);
   gtk_container_add (GTK_CONTAINER (self), priv->load_more);
 
   gtk_widget_show_all (GTK_WIDGET (self));
 
-  g_signal_connect (priv->view, "item-activated", G_CALLBACK (photos_view_container_item_activated), self);
-  g_signal_connect (priv->view,
-                    "selection-mode-request",
-                    G_CALLBACK (photos_view_container_selection_mode_request),
-                    self);
-  g_signal_connect (priv->view,
-                    "view-selection-changed",
-                    G_CALLBACK (photos_view_container_view_selection_changed),
-                    self);
+  /* g_signal_connect (priv->view, "item-activated", G_CALLBACK (photos_view_container_item_activated), self); */
+  /* g_signal_connect (priv->view, */
+  /*                   "selection-mode-request", */
+  /*                   G_CALLBACK (photos_view_container_selection_mode_request), */
+  /*                   self); */
+  /* g_signal_connect (priv->view, */
+  /*                   "view-selection-changed", */
+  /*                   G_CALLBACK (photos_view_container_view_selection_changed), */
+  /*                   self); */
 
   priv->item_mngr = photos_item_manager_dup_singleton ();
 
@@ -313,10 +324,10 @@ photos_view_container_constructed (GObject *object)
   app = photos_application_new ();
 
   action = g_action_map_lookup_action (G_ACTION_MAP (app), "select-all");
-  g_signal_connect_swapped (action, "activate", G_CALLBACK (gd_main_view_select_all), priv->view);
+  g_signal_connect_swapped (action, "activate", G_CALLBACK (gtk_flow_box_select_all), priv->view);
 
   action = g_action_map_lookup_action (G_ACTION_MAP (app), "select-none");
-  g_signal_connect_swapped (action, "activate", G_CALLBACK (gd_main_view_unselect_all), priv->view);
+  g_signal_connect_swapped (action, "activate", G_CALLBACK (gtk_flow_box_unselect_all), priv->view);
 
   g_object_unref (app);
 

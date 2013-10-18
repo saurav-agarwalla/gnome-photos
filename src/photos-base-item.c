@@ -359,8 +359,6 @@ photos_base_item_download_in_thread_func (GTask *task,
 static void
 photos_base_item_icon_updated (PhotosBaseItem *self, GIcon *icon)
 {
-  PhotosBaseItemPrivate *priv = self->priv;
-
   if (icon == NULL)
     return;
 
