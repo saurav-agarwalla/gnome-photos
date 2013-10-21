@@ -86,6 +86,7 @@ enum
   PROP_0,
   PROP_CURSOR,
   PROP_FAILED_THUMBNAILING,
+  PROP_ICON,
   PROP_ID,
 };
 
@@ -119,6 +120,22 @@ photos_base_item_create_symbolic_emblem (const gchar *name)
     pix = g_themed_icon_new (name);
 
   return pix;
+}
+
+
+static void
+photos_base_item_set_icon (PhotosBaseItem *self, GdkPixbuf *icon)
+{
+  PhotosBaseItemPrivate *priv = self->priv;
+
+  if (priv->icon == icon)
+    return;
+
+  g_clear_object (&priv->icon);
+  if (icon != NULL)
+    priv->icon = g_object_ref (icon);
+
+  g_object_notify (G_OBJECT (self), "icon");
 }
 
 
@@ -195,16 +212,19 @@ photos_base_item_check_effects_and_update_info (PhotosBaseItem *self)
   if (priv->thumbnailed)
     {
       GtkBorder *slice;
+      GdkPixbuf *framed_icon;
 
       slice = photos_utils_get_thumbnail_frame_border ();
-      priv->icon = photos_utils_embed_image_in_frame (icon,
-                                                      PACKAGE_ICONS_DIR "/thumbnail-frame.png",
-                                                      slice,
-                                                      slice);
+      framed_icon = photos_utils_embed_image_in_frame (icon,
+                                                       PACKAGE_ICONS_DIR "/thumbnail-frame.png",
+                                                       slice,
+                                                       slice);
+      photos_base_item_set_icon (self, framed_icon);
+      g_clear_object (&framed_icon);
       gtk_border_free (slice);
     }
   else
-    priv->icon = g_object_ref (icon);
+    photos_base_item_set_icon (self, icon);
 
   g_signal_emit (self, signals[INFO_UPDATED], 0);
 
@@ -344,8 +364,7 @@ photos_base_item_icon_updated (PhotosBaseItem *self, GIcon *icon)
   if (icon == NULL)
     return;
 
-  g_clear_object (&priv->icon);
-  priv->icon = g_object_ref (icon);
+  photos_base_item_set_icon (self, icon);
   photos_base_item_check_effects_and_update_info (self);
 }
 
@@ -385,10 +404,11 @@ photos_base_item_refresh_thumb_path_pixbuf (GObject *source_object, GAsyncResult
 {
   PhotosBaseItem *self = PHOTOS_BASE_ITEM (user_data);
   PhotosBaseItemPrivate *priv = self->priv;
+  GdkPixbuf *icon = NULL;
   GError *error = NULL;
   GInputStream *stream = G_INPUT_STREAM (source_object);
 
-  priv->icon = gdk_pixbuf_new_from_stream_finish (res, &error);
+  icon = gdk_pixbuf_new_from_stream_finish (res, &error);
   if (error != NULL)
     {
       priv->failed_thumbnailing = TRUE;
@@ -396,10 +416,12 @@ photos_base_item_refresh_thumb_path_pixbuf (GObject *source_object, GAsyncResult
       goto out;
     }
 
+  photos_base_item_set_icon (self, icon);
   priv->thumbnailed = TRUE;
   photos_base_item_check_effects_and_update_info (self);
 
  out:
+  g_clear_object (&icon);
   g_input_stream_close_async (stream, G_PRIORITY_DEFAULT, NULL, NULL, NULL);
   g_object_unref (self);
 }
@@ -625,8 +647,12 @@ photos_base_item_update_icon_from_type (PhotosBaseItem *self)
                                          GTK_ICON_LOOKUP_FORCE_SIZE | GTK_ICON_LOOKUP_GENERIC_FALLBACK);
   if (info != NULL)
     {
-      priv->icon = gtk_icon_info_load_icon (info, NULL);
+      GdkPixbuf *pixbuf_icon;
+
+      pixbuf_icon = gtk_icon_info_load_icon (info, NULL);
       /* TODO: use a GError */
+      photos_base_item_set_icon (self, pixbuf_icon);
+      g_clear_object (&pixbuf_icon);
     }
 
   photos_base_item_check_effects_and_update_info (self);
@@ -843,11 +869,16 @@ static void
 photos_base_item_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
 {
   PhotosBaseItem *self = PHOTOS_BASE_ITEM (object);
+  PhotosBaseItemPrivate *priv = self->priv;
 
   switch (prop_id)
     {
+    case PROP_ICON:
+      g_value_set_object (value, priv->icon);
+      break;
+
     case PROP_ID:
-      g_value_set_string (value, self->priv->id);
+      g_value_set_string (value, priv->id);
       break;
 
     default:
@@ -924,6 +955,14 @@ photos_base_item_class_init (PhotosBaseItemClass *class)
                                                          "Failed to create a thumbnail",
                                                          FALSE,
                                                          G_PARAM_CONSTRUCT_ONLY | G_PARAM_WRITABLE));
+
+  g_object_class_install_property (object_class,
+                                   PROP_ICON,
+                                   g_param_spec_object ("icon",
+                                                        "GdkPixbuf object",
+                                                        "The thumbnail for this item",
+                                                        GDK_TYPE_PIXBUF,
+                                                        G_PARAM_READABLE));
 
   g_object_class_install_property (object_class,
                                    PROP_ID,
