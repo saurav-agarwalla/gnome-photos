@@ -153,6 +153,8 @@ gnome_photos_SOURCES = \
 	photos-organize-collection-view.h \
 	photos-overview-searchbar.c \
 	photos-overview-searchbar.h \
+	photos-picasaweb-item.c \
+	photos-picasaweb-item.h \
 	photos-preview-model.c \
 	photos-preview-model.h \
 	photos-preview-nav-buttons.c \
@@ -266,6 +268,7 @@ AM_CPPFLAGS = \
 	$(EXEMPI_CFLAGS) \
 	$(GDK_PIXBUF_CFLAGS) \
 	$(GFBGRAPH_CFLAGS) \
+	$(GDATA_CFLAGS) \
 	$(GEGL_CFLAGS) \
 	$(GIO_CFLAGS) \
 	$(GLIB_CFLAGS) \
@@ -293,6 +296,7 @@ gnome_photos_LDADD = \
 	$(EXEMPI_LIBS) \
 	$(GDK_PIXBUF_LIBS) \
 	$(GFBGRAPH_LIBS) \
+	$(GDATA_LIBS) \
 	$(GEGL_LIBS) \
 	$(GIO_LIBS) \
 	$(GLIB_LIBS) \
